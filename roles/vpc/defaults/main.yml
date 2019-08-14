@@ -1,0 +1,29 @@
+---
+# General Information
+app_environment:    "test"
+aws_region:     "ap-southeast-1"
+
+# AWS Credentials
+aws_access_key: "AKIA3INYWEAGSIWQL6N3"
+aws_secret_key: "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"
+
+# VPC Information
+vpc_name:       "{{ 'vpc-' + aws_region + '-' + app_environment }}"
+
+vpc_cidr_blocks:
+    - "10.65.0.0/18"    # CIDR block for Availability zone A
+    - "10.65.64.0/18"   # CIDR block for Availability zone B
+    - "10.65.128.0/18"  # CIDR block for Availability zone C
+ 
+# Subnets
+supernet_az_a_public:  "10.65.0.0/19"   # Public Supernet for availability zone A
+supernet_az_a_private:  "10.65.32.0/19"  # Private Supernet for availability zone A
+# Tiers
+subnets_az_a:
+    - { name: public_web, cidr: "10.65.0.0/24" }
+    - { name: private_app, cidr: "10.65.32.0/24" }
+    - { name: private_db, cidr: "10.65.33.0/24" }
+
+# Public and Private subnets for availability zone B
+subnet_az_b_public:  "10.65.64.0/19"
+subnet_az_b_private:  "10.65.96.0/19"

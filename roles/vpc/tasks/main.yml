@@ -1,0 +1,84 @@
+---
+# roles/vpc/tasks/main.yml
+
+# Create the VPC using variables set in vars and/or defaults directories
+- name:               Create VPC
+  ec2_vpc_net:
+    name:             "{{ vpc_name }}"
+    cidr_block:       "{{ vpc_cidr_blocks }}"
+    region:           "{{ aws_region }}"
+    aws_access_key:   "{{ aws_access_key }}"
+    aws_secret_key:   "{{ aws_secret_key }}"
+    state:            "present"
+  register: my_vpc
+
+# Save the id of the VPC in a new variable
+- name:               Set VPC ID in variable
+  set_fact:
+    vpc_id:           "{{ my_vpc.vpc.id }}"
+
+# Create the subnets
+- name:               Create Subnets
+  ec2_vpc_subnet:
+    state:            "present"
+    vpc_id:           "{{ vpc_id }}"
+    cidr:             "{{ item.cidr }}"
+    az:               "{{ aws_region }}a"
+    region:           "{{ aws_region }}"
+    aws_access_key:   "{{ aws_access_key }}"
+    aws_secret_key:   "{{ aws_secret_key }}"
+    resource_tags:
+        Name: "{{ 'subnet-' + aws_region + 'a-' + app_environment + '-' + item.name  }}"
+  with_items: "{{ subnets_az_a }}"
+  register: my_public_subnets
+
+# Save the IDs of the Subnets in a new variable.
+- name:               Set Subnet IDs in variable
+  set_fact:
+    public_subnets: "{{ my_public_subnets }}"
+
+# Create the Internet gateway for the VPC
+- name:               Create Internet Gateway for VPC
+  ec2_vpc_igw:
+    vpc_id:           "{{ vpc_id }}"
+    region:           "{{ aws_region }}"
+    aws_access_key:   "{{ aws_access_key }}"
+    aws_secret_key:   "{{ aws_secret_key }}"
+    state:            "present"
+  register: my_vpc_igw
+
+# Save the id of the Internet Gateway in a new variable.
+- name:               Set Internet Gateway ID in variable
+  set_fact:
+    igw_id:           "{{ my_vpc_igw.gateway_id }}"
+
+# - debug:
+    # var:    my_public_subnets
+# - debug:
+    # msg: "{{item.subnet.id}}"
+  # with_items: "{{my_public_subnets.results}}"
+
+# Create the route tables and associate to corresponding subnets
+- name:               Set up public subnet route table
+  ec2_vpc_route_table:
+    vpc_id: "{{ item.subnet.vpc_id }}"
+    region:           "{{ aws_region }}"
+    aws_access_key:   "{{ aws_access_key }}"
+    aws_secret_key:   "{{ aws_secret_key }}"
+    tags:
+      Name: "{{ 'rtb-' + aws_region + 'a-' + app_environment + '-' + item.item.name  }}"
+    subnets: "{{ item.subnet.id }}"
+  with_items: "{{ my_public_subnets.results }}"
+
+# Add Internet Gateway to Public Web route table
+- name: Set up IGW for Public Web route table
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_id }}"
+    region:           "{{ aws_region }}"
+    aws_access_key:   "{{ aws_access_key }}"
+    aws_secret_key:   "{{ aws_secret_key }}"
+    tags:
+      Name: "{{ 'rtb-' + aws_region + 'a-' + app_environment + '-public_web' }}"
+    routes:
+        - dest:         "0.0.0.0/0"
+          gateway_id:   "{{ igw_id }}"
